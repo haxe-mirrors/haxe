@@ -460,13 +460,27 @@ let rec unify_call_args' ctx el args r callp inline force_inline =
 		| [],(_,false,_) :: _ ->
 			call_error (Not_enough_arguments args) callp
 		| [],(name,true,t) :: args ->
-			begin match loop [] args with
-				| [] when not (inline && (ctx.g.doinline || force_inline)) && not ctx.com.config.pf_pad_nulls ->
-					if is_pos_infos t then [mk_pos_infos t,true]
-					else []
-				| args ->
-					let e_def = default_value name t in
-					(e_def,true) :: args
+			begin match follow t with
+				| TAbstract({a_impl = Some c; a_from_nothing = Some cf} as a,tl) ->
+					let t = (AbstractCast.make_static_call ctx c cf a tl [] t callp,true) in
+					begin match args with
+						| [] -> [t]
+						| _ -> t :: (loop [] args)
+					end
+				| _ ->
+					begin match loop [] args with
+					| [] ->
+						if not (inline && (ctx.g.doinline || force_inline)) && not ctx.com.config.pf_pad_nulls then begin
+							if is_pos_infos t then [mk_pos_infos t,true]
+							else []
+						end else begin
+							let e_def = default_value name t in
+							[e_def,true]
+						end
+					| args ->
+						let e_def = default_value name t in
+						(e_def,true) :: args
+					end
 			end
 		| (_,p) :: _, [] ->
 			begin match List.rev !skipped with
@@ -1453,13 +1467,20 @@ let type_bind ctx (e : texpr) (args,ret) params p =
 		| [], [] -> given_args,missing_args,ordered_args
 		| [], _ -> error "Too many callback arguments" p
 		| (n,o,t) :: args , [] when o ->
-			let a = if is_pos_infos t then
+			let a = begin match follow t with
+			| TAbstract({a_impl = Some c; a_from_nothing = Some cf} as a,tl) ->
+				let t = AbstractCast.make_static_call ctx c cf a tl [] t p in
+				ordered_args @ [t]
+			| _ ->
+				if is_pos_infos t then
 					let infos = mk_infos ctx p [] in
 					ordered_args @ [type_expr ctx infos (WithType t)]
 				else if ctx.com.config.pf_pad_nulls then
 					(ordered_args @ [(mk (TConst TNull) t_dynamic p)])
 				else
-					ordered_args
+					ordered_args @ [(mk (TConst TNull) t_dynamic p)]
+					(*ordered_args*)
+			end
 			in
 			loop args [] given_args missing_args a
 		| (n,o,t) :: _ , (EConst(Ident "_"),p) :: _ when not ctx.com.config.pf_can_skip_non_nullable_argument && o && not (is_nullable t) ->
