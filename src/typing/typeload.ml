@@ -298,13 +298,6 @@ let type_var_field ctx t e stat do_display p =
 	| TType ({ t_path = ([],"UInt") },[]) | TAbstract ({ a_path = ([],"UInt") },[]) when stat -> { e with etype = t }
 	| _ -> e
 
-let apply_macro ctx mode path el p =
-	let cpath, meth = (match List.rev (ExtString.String.nsplit path ".") with
-		| meth :: name :: pack -> (List.rev pack,name), meth
-		| _ -> error "Invalid macro path" p
-	) in
-	ctx.g.do_macro ctx mode cpath meth el p
-
 (** since load_type_def and load_instance are used in PASS2, they should not access the structure of a type **)
 
 (*
@@ -1936,16 +1929,16 @@ let is_java_native_function meta = try
 let build_module_def ctx mt meta fvars context_init fbuild =
 	let loop (f_build,f_enum) = function
 		| Meta.Build,args,p -> (fun () ->
+				if ctx.in_macro then error "You cannot use @:build inside a macro : make sure that your type is not used in macro" p;
 				let epath, el = (match args with
 					| [ECall (epath,el),p] -> epath, el
 					| _ -> error "Invalid build parameters" p
 				) in
-				let s = try String.concat "." (List.rev (string_list_of_expr_path epath)) with Error (_,p) -> error "Build call parameter must be a class path" p in
-				if ctx.in_macro then error "You cannot use @:build inside a macro : make sure that your type is not used in macro" p;
+				let path = try List.rev (string_list_of_expr_path epath) with Error (_,p) -> error "Build call parameter must be a class path" p in
 				let old = ctx.g.get_build_infos in
 				ctx.g.get_build_infos <- (fun() -> Some (mt, List.map snd (t_infos mt).mt_params, fvars()));
 				context_init();
-				let r = try apply_macro ctx MBuild s el p with e -> ctx.g.get_build_infos <- old; raise e in
+				let r = try BuildMacro.apply_macro ctx MBuild path el p with e -> ctx.g.get_build_infos <- old; raise e in
 				ctx.g.get_build_infos <- old;
 				(match r with
 				| None -> error "Build failure" p
