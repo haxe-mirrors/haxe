@@ -228,6 +228,10 @@ private class StringMapIterator<T> {
 	}
 
 	public inline function iterator():Iterator<T> {
+		return typedIterator();
+	}
+
+	inline function typedIterator():StringMapIterator<T> {
 		return new StringMapIterator(this, arrayKeys());
 	}
 
