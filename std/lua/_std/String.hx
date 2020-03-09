@@ -36,8 +36,7 @@ class String {
 
 	public var length(default, null):Int;
 
-	public inline function new(string:String)
-		untyped {}
+	public inline function new(string:String) untyped {}
 
 	@:keep
 	static function __index(s:Dynamic, k:Dynamic):Dynamic {
@@ -79,13 +78,22 @@ class String {
 		var ret = -1;
 		if (startIndex == null)
 			startIndex = length;
-		while (true) {
-			var p = indexOf(str, ret + 1);
-			if (p == -1 || p > startIndex)
-				break;
-			ret = p;
+		if (str == "") {
+			if (this == "") {
+				return 0;
+			} else {
+				var max = cast Math.max(startIndex, 0);
+				return cast Math.min(length, max);
+			}
+		} else {
+			while (true) {
+				var p = indexOf(str, ret + 1);
+				if (p == -1 || p > startIndex)
+					break;
+				ret = p;
+			}
+			return ret;
 		}
-		return ret;
 	}
 
 	public inline function split(delimiter:String):Array<String> {
