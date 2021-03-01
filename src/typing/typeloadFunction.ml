@@ -31,6 +31,7 @@ open FunctionArguments
 
 let save_field_state ctx =
 	let old_ret = ctx.ret in
+	let old_is_coroutine = ctx.is_coroutine in
 	let old_fun = ctx.curfun in
 	let old_opened = ctx.opened in
 	let old_monos = ctx.monomorphs.perfunction in
@@ -39,6 +40,7 @@ let save_field_state ctx =
 	(fun () ->
 		ctx.locals <- locals;
 		ctx.ret <- old_ret;
+		ctx.is_coroutine <- old_is_coroutine;
 		ctx.curfun <- old_fun;
 		ctx.opened <- old_opened;
 		ctx.monomorphs.perfunction <- old_monos;
@@ -50,9 +52,10 @@ let type_function_params ctx fd fname p =
 	params := Typeload.type_type_params ctx ([],fname) (fun() -> !params) p fd.f_params;
 	!params
 
-let type_function ctx (args : function_arguments) ret fmode e do_display p =
+let type_function ctx (args : function_arguments) ret fmode e is_coroutine do_display p =
 	ctx.in_function <- true;
 	ctx.curfun <- fmode;
+	ctx.is_coroutine <- is_coroutine;
 	ctx.ret <- ret;
 	ctx.opened <- [];
 	ctx.monomorphs.perfunction <- [];
@@ -177,9 +180,9 @@ let type_function ctx (args : function_arguments) ret fmode e do_display p =
 	if is_position_debug then print_endline ("typing:\n" ^ (Texpr.dump_with_pos "" e));
 	e
 
-let type_function ctx args ret fmode e do_display p =
+let type_function ctx args ret fmode e is_coroutine do_display p =
 	let save = save_field_state ctx in
-	Std.finally save (type_function ctx args ret fmode e do_display) p
+	Std.finally save (type_function ctx args ret fmode e is_coroutine do_display) p
 
 let add_constructor ctx c force_constructor p =
 	if c.cl_constructor <> None then () else
@@ -221,7 +224,7 @@ let add_constructor ctx c force_constructor p =
 				| _ ->
 					let values = get_value_meta cfsup.cf_meta in
 					match follow cfsup.cf_type with
-					| TFun (args,_) ->
+					| TFun (args,_,_) ->
 						List.map (fun (n,o,t) ->
 							let def = try
 								type_function_arg_value ctx t (Some (PMap.find n values)) false
@@ -239,7 +242,7 @@ let add_constructor ctx c force_constructor p =
 				tf_args = vars;
 				tf_type = ctx.t.tvoid;
 				tf_expr = super_call;
-			}) (TFun (List.map (fun (v,c) -> v.v_name, c <> None, v.v_type) vars,ctx.t.tvoid)) p in
+			}) (TFun (List.map (fun (v,c) -> v.v_name, c <> None, v.v_type) vars,ctx.t.tvoid,false)) p in
 			cf.cf_expr <- Some constr;
 			cf.cf_type <- t;
 			unify ctx t constr.etype p;

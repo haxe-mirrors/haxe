@@ -438,7 +438,7 @@ let load_enum_field ctx e et is_flat index c =
 				if PMap.mem s (!pnames) then error ("Duplicate argument `" ^ s ^ "` in enum constructor " ^ fst c.ec_name) p;
 				pnames := PMap.add s () (!pnames);
 				s, opt, load_type_hint ~opt ctx p (Some (t,tp))
-			) l, rt)
+			) l, rt, false)
 	) in
 	let f = {
 		ef_name = fst c.ec_name;
@@ -984,6 +984,7 @@ let type_types_into_module ctx m tdecls p =
 		ret = ctx.ret;
 		locals = PMap.empty;
 		type_params = [];
+		is_coroutine = false;
 		curfun = FunStatic;
 		untyped = false;
 		in_macro = ctx.in_macro;
