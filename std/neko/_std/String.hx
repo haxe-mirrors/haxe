@@ -61,11 +61,14 @@
 			var l = __dollar__ssize(this.__s);
 			if (startIndex == null || startIndex < -l)
 				startIndex = 0;
-			if (str == '' && startIndex >= l) {
-				return l;
+			else if (startIndex < 0) {
+				startIndex = l + startIndex;
+				if ( startIndex < 0 ) {
+					startIndex = 0;
+				}
 			}
-			if (startIndex > l)
-				return -1;
+			else if(startIndex > l)
+				return str == '' ? l : -1;
 			if (__dollar__ssize(str.__s) == 0)
 				return startIndex < 0 ? l + startIndex : startIndex;
 			var p = try __dollar__sfind(this.__s, startIndex, str.__s) catch (e:Dynamic) null;

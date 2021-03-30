@@ -57,7 +57,7 @@ private typedef NativeString = String;
 				}
 				return sIndex > length ? length : sIndex;
 			}
-			if (sIndex >= me.length() || sIndex < 0)
+			if (sIndex >= me.length())
 				return -1;
 			return me.indexOf(str, sIndex);
 	')
