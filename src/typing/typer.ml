@@ -621,14 +621,6 @@ and type_vars ctx vl p =
 				check_error ctx e p;
 				add_local ctx VGenerated n t_dynamic pv, None (* TODO: What to do with this... *)
 	) vl in
-	delay ctx PTypeField (fun() ->
-		List.iter
-			(fun (v,_) ->
-				if ExtType.is_void (follow v.v_type) then
-					error "Variables of type Void are not allowed" v.v_pos
-			)
-			vl
-	);
 	match vl with
 	| [v,eo] ->
 		mk (TVar (v,eo)) ctx.t.tvoid p
@@ -837,7 +829,6 @@ and type_object_decl ctx fl with_type p =
 			let is_valid = Lexer.is_valid_identifier f in
 			if PMap.mem f acc then error ("Duplicate field in object declaration : " ^ f) p;
 			let e = type_expr ctx e (WithType.named_structure_field f) in
-			(match follow e.etype with TAbstract({a_path=[],"Void"},_) -> error "Fields of type Void are not allowed in structures" e.epos | _ -> ());
 			let cf = mk_field f e.etype (punion pf e.epos) pf in
 			if ctx.in_display && DisplayPosition.display_position#enclosed_in pf then DisplayEmitter.display_field ctx Unknown CFSMember cf pf;
 			(((f,pf,qs),e) :: l, if is_valid then begin
@@ -1558,7 +1549,7 @@ and type_call_target ctx e el with_type inline p =
 and type_call ?(mode=MGet) ctx e el (with_type:WithType.t) inline p =
 	let def () =
 		let e = type_call_target ctx e el with_type inline p in
-		build_call ~mode ctx e el with_type p;
+		build_call ~mode ctx e el with_type p
 	in
 	match e, el with
 	| (EConst (Ident "trace"),p) , e :: el ->
@@ -1919,7 +1910,11 @@ let rec create com =
 		match t with
 		| TAbstractDecl a ->
 			(match snd a.a_path with
-			| "Void" -> ctx.t.tvoid <- TAbstract (a,[]);
+			| "Void" ->
+				let typeexpr = TTypeExpr t in
+				let tvoid = TAbstract (a,[]) in
+				ctx.t.tvoid <- tvoid;
+				ctx.t.evoid <- mk typeexpr tvoid;
 			| "Float" -> ctx.t.tfloat <- TAbstract (a,[]);
 			| "Int" -> ctx.t.tint <- TAbstract (a,[])
 			| "Bool" -> ctx.t.tbool <- TAbstract (a,[])
